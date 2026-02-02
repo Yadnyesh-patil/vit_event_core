@@ -11,50 +11,15 @@ use Drupal\Core\Messenger\MessengerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Component\Datetime\TimeInterface;
 
-/**
- * Provides the Event Registration Form with AJAX logic.
- */
 class RegistrationForm extends FormBase
 {
 
-    /**
-     * Database connection.
-     *
-     * @var \Drupal\Core\Database\Connection
-     */
     protected $database;
-
-    /**
-     * Email validator.
-     *
-     * @var \Drupal\Component\Utility\EmailValidator
-     */
     protected $emailValidator;
-
-    /**
-     * Messenger service.
-     *
-     * @var \Drupal\Core\Messenger\MessengerInterface
-     */
     protected $messenger;
-
-    /**
-     * Request stack.
-     *
-     * @var \Symfony\Component\HttpFoundation\RequestStack
-     */
     protected $requestStack;
-
-    /**
-     * Time service.
-     *
-     * @var \Drupal\Component\Datetime\TimeInterface
-     */
     protected $time;
 
-    /**
-     * Constructor with strict Dependency Injection.
-     */
     public function __construct(Connection $database, EmailValidator $email_validator, MessengerInterface $messenger, RequestStack $request_stack, TimeInterface $time)
     {
         $this->database = $database;
@@ -64,9 +29,6 @@ class RegistrationForm extends FormBase
         $this->time = $time;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public static function create(ContainerInterface $container)
     {
         return new static(
@@ -78,23 +40,16 @@ class RegistrationForm extends FormBase
         );
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getFormId()
     {
         return 'vit_event_registration_form';
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function buildForm(array $form, FormStateInterface $form_state)
     {
         $form['#prefix'] = '<div id="vit-registration-wrapper">';
         $form['#suffix'] = '</div>';
 
-        // 1. Participant Details
         $form['details'] = [
             '#type' => 'details',
             '#title' => $this->t('Participant Details'),
@@ -125,18 +80,13 @@ class RegistrationForm extends FormBase
             '#required' => TRUE,
         ];
 
-        // 2. Event Selection (AJAX)
         $form['event_selection'] = [
             '#type' => 'details',
             '#title' => $this->t('Event Selection'),
             '#open' => TRUE,
         ];
 
-        // Check availability of categories
         $categories = $this->fetchCategories();
-
-        // AJAX: Category
-        $selected_category = $form_state->getValue('category');
 
         $form['event_selection']['category'] = [
             '#type' => 'select',
@@ -150,13 +100,13 @@ class RegistrationForm extends FormBase
             ],
         ];
 
-        // AJAX: Date Wrapper
         $form['event_selection']['date_wrapper'] = [
             '#type' => 'container',
             '#attributes' => ['id' => 'date-dropdown-wrapper'],
         ];
 
         $dates = [];
+        $selected_category = $form_state->getValue('category');
         if (!empty($selected_category)) {
             $dates = $this->fetchDates($selected_category);
         }
@@ -166,7 +116,7 @@ class RegistrationForm extends FormBase
             '#title' => $this->t('Select Date'),
             '#options' => $dates,
             '#empty_option' => $this->t('- Select Date -'),
-            '#access' => !empty($dates) || !empty($selected_category), // Show if category selected
+            '#access' => !empty($dates) || !empty($selected_category),
             '#ajax' => [
                 'callback' => '::onDateChange',
                 'wrapper' => 'event-dropdown-wrapper',
@@ -174,7 +124,6 @@ class RegistrationForm extends FormBase
             '#validated' => TRUE,
         ];
 
-        // AJAX: Event Name Wrapper
         $form['event_selection']['event_wrapper'] = [
             '#type' => 'container',
             '#attributes' => ['id' => 'event-dropdown-wrapper'],
@@ -186,7 +135,7 @@ class RegistrationForm extends FormBase
             $events = $this->fetchEvents($selected_category, $selected_date);
         }
 
-        $form['event_selection']['event_wrapper']['event_name'] = [
+        $form['event_selection']['event_wrapper']['event_id'] = [
             '#type' => 'select',
             '#title' => $this->t('Select Event'),
             '#options' => $events,
@@ -203,8 +152,6 @@ class RegistrationForm extends FormBase
         return $form;
     }
 
-    // --- AJAX Callbacks ---
-
     public function onCategoryChange(array &$form, FormStateInterface $form_state)
     {
         return $form['event_selection']['date_wrapper'];
@@ -215,16 +162,17 @@ class RegistrationForm extends FormBase
         return $form['event_selection']['event_wrapper'];
     }
 
-    // --- Helper Methods (Private) ---
-
     private function fetchCategories()
     {
         try {
+            $today = date('Y-m-d');
             $query = $this->database->select('event_config', 'ec');
             $query->fields('ec', ['category']);
+            $query->condition('start_date', $today, '<=');
+            $query->condition('end_date', $today, '>=');
             $query->distinct();
             $result = $query->execute()->fetchCol();
-            return array_combine($result, $result);
+            return $result ? array_combine($result, $result) : [];
         } catch (\Exception $e) {
             return [];
         }
@@ -232,54 +180,64 @@ class RegistrationForm extends FormBase
 
     private function fetchDates($category)
     {
+        $today = date('Y-m-d');
         $query = $this->database->select('event_config', 'ec');
         $query->fields('ec', ['event_date']);
         $query->condition('category', $category);
+        $query->condition('start_date', $today, '<=');
+        $query->condition('end_date', $today, '>=');
         $query->distinct();
-        return array_combine($result = $query->execute()->fetchCol(), $result);
+        $result = $query->execute()->fetchCol();
+        return $result ? array_combine($result, $result) : [];
     }
 
     private function fetchEvents($category, $date)
     {
+        $today = date('Y-m-d');
         $query = $this->database->select('event_config', 'ec');
-        $query->fields('ec', ['event_name', 'event_name']); // Key => Value
+        $query->fields('ec', ['id', 'event_name']); // ID as Key
         $query->condition('category', $category);
         $query->condition('event_date', $date);
-        return $query->execute()->fetchAllKeyed(0, 0); // Using name as key and value
+        $query->condition('start_date', $today, '<=');
+        $query->condition('end_date', $today, '>=');
+        return $query->execute()->fetchAllKeyed(0, 1); // ID => Name
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function validateForm(array &$form, FormStateInterface $form_state)
     {
-        // 1. Validate Email
         if (!$this->emailValidator->isValid($form_state->getValue('email'))) {
             $form_state->setErrorByName('email', $this->t('Invalid email format.'));
         }
 
-        // 2. Check Duplicates (Email + Event Name)
-        $email = $form_state->getValue('email');
-        $event_name = $form_state->getValue('event_name');
+        $text_fields = ['full_name', 'college', 'department'];
+        foreach ($text_fields as $field) {
+            $value = $form_state->getValue($field);
+            if (preg_match('/[^a-zA-Z0-9\s\.\-]/', $value)) {
+                $form_state->setErrorByName($field, $this->t('Special characters are not allowed in @field.', ['@field' => str_replace('_', ' ', ucfirst($field))]));
+            }
+        }
 
-        if ($email && $event_name) {
+        $email = $form_state->getValue('email');
+        $event_id = $form_state->getValue('event_id');
+
+        if ($email && $event_id) {
             $query = $this->database->select('event_registrations', 'er');
             $query->condition('email', $email);
-            $query->condition('event_name', $event_name);
+            $query->condition('event_id', $event_id);
             $count = $query->countQuery()->execute()->fetchField();
 
             if ($count > 0) {
-                $form_state->setErrorByName('email', $this->t('You have already registered for @event.', ['@event' => $event_name]));
+                $e_name = $this->getEventName($event_id);
+                $form_state->setErrorByName('email', $this->t('You have already registered for @event.', ['@event' => $e_name]));
             }
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function submitForm(array &$form, FormStateInterface $form_state)
     {
         try {
+            $event_id = $form_state->getValue('event_id');
+
             $this->database->insert('event_registrations')
                 ->fields([
                     'full_name' => $form_state->getValue('full_name'),
@@ -287,16 +245,41 @@ class RegistrationForm extends FormBase
                     'college' => $form_state->getValue('college'),
                     'department' => $form_state->getValue('department'),
                     'category' => $form_state->getValue('category'),
-                    'event_name' => $form_state->getValue('event_name'),
+                    'event_id' => $event_id,
                     'created_at' => $this->time->getRequestTime(),
                 ])
                 ->execute();
 
             $this->messenger->addStatus($this->t('Registration Successful!'));
 
-            // Email triggering will be handled in Phase 4 via hook_mail
+            $event_name = $this->getEventName($event_id);
+            $config = \Drupal::config('vit_event_core.settings');
+            $params = [
+                'full_name' => $form_state->getValue('full_name'),
+                'event_name' => $event_name,
+                'email' => $form_state->getValue('email'),
+                'event_date' => $form_state->getValue('event_date'),
+                'category' => $form_state->getValue('category'),
+            ];
+
+            \Drupal::service('plugin.manager.mail')->mail('vit_event_core', 'registration_receipt', $params['email'], 'en', $params);
+
+            if ($config->get('enable_notifications')) {
+                $admin_email = $config->get('admin_notification_email');
+                if ($admin_email) {
+                    \Drupal::service('plugin.manager.mail')->mail('vit_event_core', 'admin_notification', $admin_email, 'en', $params);
+                }
+            }
         } catch (\Exception $e) {
-            $this->messenger->addError($this->t('Registration Failed.'));
+            $this->messenger->addError($this->t('Registration Failed: @error', ['@error' => $e->getMessage()]));
         }
+    }
+
+    private function getEventName($id)
+    {
+        $query = $this->database->select('event_config', 'ec');
+        $query->fields('ec', ['event_name']);
+        $query->condition('id', $id);
+        return $query->execute()->fetchField();
     }
 }

@@ -1,0 +1,11 @@
+{
+  "name": "drupal/vit_event_core",
+  "type": "drupal-module",
+  "description": "VIT Event Core module for FOSSEE.",
+  "license": "GPL-2.0-or-later",
+  "autoload": {
+    "psr-4": {
+      "Drupal\\vit_event_core\\": "src/"
+    }
+  }
+}

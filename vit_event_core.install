@@ -35,7 +35,7 @@ function vit_event_core_schema() {
       ],
       'event_date' => [
         'description' => 'Date of the event.',
-        'type' => 'varchar', // Storing as string Y-m-d for simplicity per requirements
+        'type' => 'varchar',
         'length' => 20,
         'not null' => TRUE,
       ],
@@ -62,6 +62,12 @@ function vit_event_core_schema() {
       'id' => [
         'description' => 'Primary Key: Registration ID.',
         'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'event_id' => [
+        'description' => 'Foreign Key: Event ID.',
+        'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
@@ -95,12 +101,6 @@ function vit_event_core_schema() {
         'length' => 100,
         'not null' => TRUE,
       ],
-      'event_name' => [
-        'description' => 'Event name registered for.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-      ],
       'created_at' => [
         'description' => 'Timestamp of registration.',
         'type' => 'int',
@@ -109,7 +109,13 @@ function vit_event_core_schema() {
     ],
     'primary key' => ['id'],
     'indexes' => [
-      'email_event' => ['email', 'event_name'], // Index for duplicate check query
+      'email_event' => ['email', 'event_id'], 
+    ],
+    'foreign keys' => [
+      'fk_event_id' => [
+        'table' => 'event_config',
+        'columns' => ['event_id' => 'id'],
+      ],
     ],
   ];
 
