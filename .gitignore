@@ -1,0 +1,13 @@
+# Composer dependencies
+/vendor
+/composer.phar
+
+# IDE settings
+.idea
+.vscode
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
