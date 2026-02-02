@@ -1,0 +1,117 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the VIT Event Core module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function vit_event_core_schema() {
+  $schema = [];
+
+  // Table 1: Event Configuration
+  $schema['event_config'] = [
+    'description' => 'Stores event definitions and configurations.',
+    'fields' => [
+      'id' => [
+        'description' => 'Primary Key: Event ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'event_name' => [
+        'description' => 'Name of the event.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'category' => [
+        'description' => 'Event category (Conference, Workshop, etc).',
+        'type' => 'varchar',
+        'length' => 100,
+        'not null' => TRUE,
+      ],
+      'event_date' => [
+        'description' => 'Date of the event.',
+        'type' => 'varchar', // Storing as string Y-m-d for simplicity per requirements
+        'length' => 20,
+        'not null' => TRUE,
+      ],
+      'start_date' => [
+        'description' => 'Registration start date.',
+        'type' => 'varchar',
+        'length' => 20,
+        'not null' => TRUE,
+      ],
+      'end_date' => [
+        'description' => 'Registration end date.',
+        'type' => 'varchar',
+        'length' => 20,
+        'not null' => TRUE,
+      ],
+    ],
+    'primary key' => ['id'],
+  ];
+
+  // Table 2: Event Registrations
+  $schema['event_registrations'] = [
+    'description' => 'Stores user registrations for events.',
+    'fields' => [
+      'id' => [
+        'description' => 'Primary Key: Registration ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'full_name' => [
+        'description' => 'Participant full name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'email' => [
+        'description' => 'Participant email address.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'college' => [
+        'description' => 'Participant college/institute.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'department' => [
+        'description' => 'Participant department.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'category' => [
+        'description' => 'Category selected at time of registration.',
+        'type' => 'varchar',
+        'length' => 100,
+        'not null' => TRUE,
+      ],
+      'event_name' => [
+        'description' => 'Event name registered for.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'created_at' => [
+        'description' => 'Timestamp of registration.',
+        'type' => 'int',
+        'not null' => TRUE,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'email_event' => ['email', 'event_name'], // Index for duplicate check query
+    ],
+  ];
+
+  return $schema;
+}

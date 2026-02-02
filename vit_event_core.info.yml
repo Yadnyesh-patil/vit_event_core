@@ -1,0 +1,6 @@
+name: 'VIT Event Core'
+type: module
+description: 'Core event management functionality for VIT screening task.'
+package: 'VIT Custom'
+core_version_requirement: ^10
+version: 1.0.0
