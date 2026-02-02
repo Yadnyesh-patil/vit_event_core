@@ -1,0 +1,22 @@
+vit_event_core.settings:
+  path: '/admin/config/vit-event/settings'
+  defaults:
+    _form: '\Drupal\vit_event_core\Form\EventSettingsForm'
+    _title: 'VIT Event Settings'
+  requirements:
+    _permission: 'administer site configuration'
+
+vit_event_core.registration:
+  path: '/event-registration'
+  defaults:
+    _form: '\Drupal\vit_event_core\Form\RegistrationForm'
+    _title: 'Event Registration'
+  requirements:
+    _permission: 'access content'
+
+vit_event_core.export:
+  path: '/admin/reports/vit-event/export'
+  defaults:
+    _controller: '\Drupal\vit_event_core\Controller\ExportController::content'
+  requirements:
+    _permission: 'administer site configuration'

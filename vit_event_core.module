@@ -1,0 +1,28 @@
+<?php
+
+/**
+ * @file
+ * Main module file for VIT Event Core.
+ */
+
+/**
+ * Implements hook_mail().
+ */
+function vit_event_core_mail($key, &$message, $params) {
+  $options = ['langcode' => $message['langcode']];
+
+  switch ($key) {
+    case 'registration_receipt':
+      $message['from'] = \Drupal::config('system.site')->get('mail');
+      $message['subject'] = t('Registration Confirmed: @event', ['@event' => $params['event_name']], $options);
+      $message['body'][] = t('Hello @name,', ['@name' => $params['full_name']], $options);
+      $message['body'][] = t('You are registered for @event.', ['@event' => $params['event_name']], $options);
+      break;
+      
+    case 'admin_notification':
+      $message['from'] = \Drupal::config('system.site')->get('mail');
+      $message['subject'] = t('New Registration: @event', ['@event' => $params['event_name']], $options);
+      $message['body'][] = t('New participant: @name (@email)', ['@name' => $params['full_name'], '@email' => $params['email']], $options);
+      break;
+  }
+}
