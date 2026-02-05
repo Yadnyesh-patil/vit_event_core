@@ -4,7 +4,7 @@ vit_event_core.settings:
     _form: '\Drupal\vit_event_core\Form\EventSettingsForm'
     _title: 'VIT Event Settings'
   requirements:
-    _permission: 'administer site configuration'
+    _permission: 'administer event registration'
 
 vit_event_core.registration:
   path: '/event-registration'
@@ -14,9 +14,17 @@ vit_event_core.registration:
   requirements:
     _permission: 'access content'
 
+vit_event_core.list:
+  path: '/admin/reports/vit-event/list'
+  defaults:
+    _form: '\Drupal\vit_event_core\Form\EventListForm'
+    _title: 'Event Registrations'
+  requirements:
+    _permission: 'administer event registration'
+
 vit_event_core.export:
   path: '/admin/reports/vit-event/export'
   defaults:
     _controller: '\Drupal\vit_event_core\Controller\ExportController::content'
   requirements:
-    _permission: 'administer site configuration'
+    _permission: 'administer event registration'

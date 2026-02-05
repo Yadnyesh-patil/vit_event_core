@@ -10,25 +10,96 @@ use Drupal\Component\Utility\EmailValidator;
 use Drupal\Core\Messenger\MessengerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Mail\MailManagerInterface;
 
+/**
+ * Provides a registration form for events.
+ */
 class RegistrationForm extends FormBase
 {
 
+    /**
+     * The database connection.
+     *
+     * @var \Drupal\Core\Database\Connection
+     */
     protected $database;
+
+    /**
+     * The email validator service.
+     *
+     * @var \Drupal\Component\Utility\EmailValidator
+     */
     protected $emailValidator;
+
+    /**
+     * The messenger service.
+     *
+     * @var \Drupal\Core\Messenger\MessengerInterface
+     */
     protected $messenger;
+
+    /**
+     * The request stack.
+     *
+     * @var \Symfony\Component\HttpFoundation\RequestStack
+     */
     protected $requestStack;
+
+    /**
+     * The time service.
+     *
+     * @var \Drupal\Component\Datetime\TimeInterface
+     */
     protected $time;
 
-    public function __construct(Connection $database, EmailValidator $email_validator, MessengerInterface $messenger, RequestStack $request_stack, TimeInterface $time)
+    /**
+     * The config factory.
+     *
+     * @var \Drupal\Core\Config\ConfigFactoryInterface
+     */
+    protected $configFactory;
+
+    /**
+     * The mail manager.
+     *
+     * @var \Drupal\Core\Mail\MailManagerInterface
+     */
+    protected $mailManager;
+
+    /**
+     * Constructs a new RegistrationForm.
+     *
+     * @param \Drupal\Core\Database\Connection $database
+     *   The database connection.
+     * @param \Drupal\Component\Utility\EmailValidator $email_validator
+     *   The email validator.
+     * @param \Drupal\Core\Messenger\MessengerInterface $messenger
+     *   The messenger service.
+     * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+     *   The request stack.
+     * @param \Drupal\Component\Datetime\TimeInterface $time
+     *   The time service.
+     * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+     *   The config factory.
+     * @param \Drupal\Core\Mail\MailManagerInterface $mail_manager
+     *   The mail manager.
+     */
+    public function __construct(Connection $database, EmailValidator $email_validator, MessengerInterface $messenger, RequestStack $request_stack, TimeInterface $time, ConfigFactoryInterface $config_factory, MailManagerInterface $mail_manager)
     {
         $this->database = $database;
         $this->emailValidator = $email_validator;
         $this->messenger = $messenger;
         $this->requestStack = $request_stack;
         $this->time = $time;
+        $this->configFactory = $config_factory;
+        $this->mailManager = $mail_manager;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public static function create(ContainerInterface $container)
     {
         return new static(
@@ -36,15 +107,23 @@ class RegistrationForm extends FormBase
             $container->get('email.validator'),
             $container->get('messenger'),
             $container->get('request_stack'),
-            $container->get('datetime.time')
+            $container->get('datetime.time'),
+            $container->get('config.factory'),
+            $container->get('plugin.manager.mail')
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getFormId()
     {
         return 'vit_event_registration_form';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function buildForm(array $form, FormStateInterface $form_state)
     {
         $form['#prefix'] = '<div id="vit-registration-wrapper">';
@@ -152,16 +231,25 @@ class RegistrationForm extends FormBase
         return $form;
     }
 
+    /**
+     * AJAX callback for category change.
+     */
     public function onCategoryChange(array &$form, FormStateInterface $form_state)
     {
         return $form['event_selection']['date_wrapper'];
     }
 
+    /**
+     * AJAX callback for date change.
+     */
     public function onDateChange(array &$form, FormStateInterface $form_state)
     {
         return $form['event_selection']['event_wrapper'];
     }
 
+    /**
+     * Helper to fetch categories.
+     */
     private function fetchCategories()
     {
         try {
@@ -178,6 +266,9 @@ class RegistrationForm extends FormBase
         }
     }
 
+    /**
+     * Helper to fetch dates for a category.
+     */
     private function fetchDates($category)
     {
         $today = date('Y-m-d');
@@ -191,18 +282,24 @@ class RegistrationForm extends FormBase
         return $result ? array_combine($result, $result) : [];
     }
 
+    /**
+     * Helper to fetch events for a category and date.
+     */
     private function fetchEvents($category, $date)
     {
         $today = date('Y-m-d');
         $query = $this->database->select('event_config', 'ec');
-        $query->fields('ec', ['id', 'event_name']); // ID as Key
+        $query->fields('ec', ['id', 'event_name']);
         $query->condition('category', $category);
         $query->condition('event_date', $date);
         $query->condition('start_date', $today, '<=');
         $query->condition('end_date', $today, '>=');
-        return $query->execute()->fetchAllKeyed(0, 1); // ID => Name
+        return $query->execute()->fetchAllKeyed(0, 1);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function validateForm(array &$form, FormStateInterface $form_state)
     {
         if (!$this->emailValidator->isValid($form_state->getValue('email'))) {
@@ -233,6 +330,9 @@ class RegistrationForm extends FormBase
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function submitForm(array &$form, FormStateInterface $form_state)
     {
         try {
@@ -253,7 +353,10 @@ class RegistrationForm extends FormBase
             $this->messenger->addStatus($this->t('Registration Successful!'));
 
             $event_name = $this->getEventName($event_id);
-            $config = \Drupal::config('vit_event_core.settings');
+
+            // Use injected Config Factory.
+            $config = $this->configFactory->get('vit_event_core.settings');
+
             $params = [
                 'full_name' => $form_state->getValue('full_name'),
                 'event_name' => $event_name,
@@ -262,12 +365,13 @@ class RegistrationForm extends FormBase
                 'category' => $form_state->getValue('category'),
             ];
 
-            \Drupal::service('plugin.manager.mail')->mail('vit_event_core', 'registration_receipt', $params['email'], 'en', $params);
+            // Use injected Mail Manager.
+            $this->mailManager->mail('vit_event_core', 'registration_receipt', $params['email'], 'en', $params);
 
             if ($config->get('enable_notifications')) {
                 $admin_email = $config->get('admin_notification_email');
                 if ($admin_email) {
-                    \Drupal::service('plugin.manager.mail')->mail('vit_event_core', 'admin_notification', $admin_email, 'en', $params);
+                    $this->mailManager->mail('vit_event_core', 'admin_notification', $admin_email, 'en', $params);
                 }
             }
         } catch (\Exception $e) {
@@ -275,11 +379,18 @@ class RegistrationForm extends FormBase
         }
     }
 
+    /**
+     * Helper to get event name by ID.
+     */
     private function getEventName($id)
     {
+        if (!$id) {
+            return '';
+        }
         $query = $this->database->select('event_config', 'ec');
         $query->fields('ec', ['event_name']);
         $query->condition('id', $id);
         return $query->execute()->fetchField();
     }
+
 }

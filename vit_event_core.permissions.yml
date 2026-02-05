@@ -1,0 +1,4 @@
+administer event registration:
+  title: 'Administer VIT Event Settings'
+  description: 'Allow users to configure events and view registration reports.'
+  restrict access: true
