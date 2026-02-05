@@ -12,18 +12,21 @@ use Drupal\Core\Messenger\MessengerInterface;
 /**
  * Configure VIT Event Core settings and manage events.
  */
-class EventSettingsForm extends ConfigFormBase {
+class EventSettingsForm extends ConfigFormBase
+{
 
   protected $database;
   protected $messenger;
 
-  public function __construct(ConfigFactoryInterface $config_factory, Connection $database, MessengerInterface $messenger) {
+  public function __construct(ConfigFactoryInterface $config_factory, Connection $database, MessengerInterface $messenger)
+  {
     parent::__construct($config_factory);
     $this->database = $database;
     $this->messenger = $messenger;
   }
 
-  public static function create(ContainerInterface $container) {
+  public static function create(ContainerInterface $container)
+  {
     return new static(
       $container->get('config.factory'),
       $container->get('database'),
@@ -31,15 +34,18 @@ class EventSettingsForm extends ConfigFormBase {
     );
   }
 
-  protected function getEditableConfigNames() {
+  protected function getEditableConfigNames()
+  {
     return ['vit_event_core.settings'];
   }
 
-  public function getFormId() {
+  public function getFormId()
+  {
     return 'vit_event_core_settings';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state)
+  {
     $config = $this->config('vit_event_core.settings');
 
     $form['general_settings'] = [
@@ -106,30 +112,30 @@ class EventSettingsForm extends ConfigFormBase {
     return parent::buildForm($form, $form_state);
   }
 
-  public function submitForm(array &$form, FormStateInterface $form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state)
+  {
     $this->config('vit_event_core.settings')
       ->set('enable_notifications', $form_state->getValue('enable_notifications'))
       ->set('admin_notification_email', $form_state->getValue('admin_notification_email'))
       ->save();
 
-    $eventName = $form_state->getValue('event_name');
-    $eventDate = $form_state->getValue('event_date');
+    $event_name = $form_state->getValue('event_name');
+    $event_date = $form_state->getValue('event_date');
 
-    if (!empty($eventName) && !empty($eventDate)) {
+    if (!empty($event_name) && !empty($event_date)) {
       try {
         $this->database->insert('event_config')
           ->fields([
-            'event_name' => $eventName,
+            'event_name' => $event_name,
             'category' => $form_state->getValue('category'),
-            'event_date' => $eventDate,
+            'event_date' => $event_date,
             'start_date' => $form_state->getValue('start_date'),
             'end_date' => $form_state->getValue('end_date'),
           ])
           ->execute();
-        
-        $this->messenger->addStatus($this->t('Event "@event" created successfully.', ['@event' => $eventName]));
-      }
-      catch (\Exception $e) {
+
+        $this->messenger->addStatus($this->t('Event "@event" created successfully.', ['@event' => $event_name]));
+      } catch (\Exception $e) {
         $this->messenger->addError($this->t('Error creating event: @error', ['@error' => $e->getMessage()]));
       }
     }

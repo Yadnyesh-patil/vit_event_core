@@ -179,6 +179,7 @@ class RegistrationForm extends FormBase
             ],
         ];
 
+        // WRAPPER 1: Dependent on Category
         $form['event_selection']['date_wrapper'] = [
             '#type' => 'container',
             '#attributes' => ['id' => 'date-dropdown-wrapper'],
@@ -203,18 +204,25 @@ class RegistrationForm extends FormBase
             '#validated' => TRUE,
         ];
 
-        $form['event_selection']['event_wrapper'] = [
+        // WRAPPER 2: Nested inside date_wrapper conceptually, or updated by date
+        // Note: We place it INSIDE date_wrapper so that when date_wrapper updates (due to Category change),
+        // this event_wrapper is also reset/removed.
+        $form['event_selection']['date_wrapper']['event_wrapper'] = [
             '#type' => 'container',
             '#attributes' => ['id' => 'event-dropdown-wrapper'],
         ];
 
         $events = [];
         $selected_date = $form_state->getValue('event_date');
+
+        // Only fetch events if both category AND date are selected.
+        // When Category changes, 'event_date' is null/reset in the new form state, 
+        // so this will be empty, effectively clearing the 3rd dropdown.
         if (!empty($selected_category) && !empty($selected_date)) {
             $events = $this->fetchEvents($selected_category, $selected_date);
         }
 
-        $form['event_selection']['event_wrapper']['event_id'] = [
+        $form['event_selection']['date_wrapper']['event_wrapper']['event_id'] = [
             '#type' => 'select',
             '#title' => $this->t('Select Event'),
             '#options' => $events,
@@ -233,6 +241,7 @@ class RegistrationForm extends FormBase
 
     /**
      * AJAX callback for category change.
+     * Returns the entire date wrapper, which now INCLUDES the event wrapper.
      */
     public function onCategoryChange(array &$form, FormStateInterface $form_state)
     {
@@ -241,10 +250,11 @@ class RegistrationForm extends FormBase
 
     /**
      * AJAX callback for date change.
+     * Returns only the event wrapper (nested inside).
      */
     public function onDateChange(array &$form, FormStateInterface $form_state)
     {
-        return $form['event_selection']['event_wrapper'];
+        return $form['event_selection']['date_wrapper']['event_wrapper'];
     }
 
     /**
